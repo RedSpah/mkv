@@ -143,7 +143,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="sdl_wrap.cpp" />
+    <ClInclude Include="mkv_util.hpp">
+      <FileType>CppCode</FileType>
+    </ClInclude>
+    <ClInclude Include="sdl_wrap.hpp">
+      <FileType>CppCode</FileType>
+    </ClInclude>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
