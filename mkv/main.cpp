@@ -14,7 +14,7 @@
 
 constexpr int screen_max_width = 800;
 constexpr int screen_max_height = 600;
-constexpr int max_offscreen = 3;
+constexpr int max_offscreen = 5;
 constexpr int field_max_width = screen_max_width + 2 * max_offscreen;
 constexpr int field_max_height = screen_max_height + 2 * max_offscreen;
 
@@ -22,31 +22,9 @@ constexpr int field_max_height = screen_max_height + 2 * max_offscreen;
 //static std::mt19937_64 rng{ std::random_device()() };
 //static std::uniform_int_distribution<int> col(0, 255);
 
-static std::array<std::bitset<field_max_width>, field_max_height> data_field;
+static mkv::field data_field(screen_max_width, screen_max_height, max_offscreen);
 
-__forceinline int data_field_acc(int x, int y) { return data_field[y][x]; }
-
-inline bool process_pattern(int x, int y, mkv::prog_automata_pattern& pattern)
-{
-	int ret = 0; 
-
-	for (int i = 0; i < pattern.p_type.backref_n; i++)
-	{
-		ret |= data_field_acc(x + pattern.p_type.backrefs[i].x, y + pattern.p_type.backrefs[i].y) << i;
-	}
-
-	return pattern.pattern[ret];
-}
-
-void mutate_pattern(mkv::prog_automata_pattern& pattern, int bits)
-{
-	for (int i = 0; i < bits; i++)
-	{
-		pattern.pattern.flip(mkv::rand(0, (1 << pattern.p_type.backref_n) - 1));
-	}
-}
-
-void drawing_thread(sdl::renderer& rend, std::atomic_bool& change_mode, mkv::prog_automata_pattern& pattern)
+void drawing_thread(sdl::renderer& rend, std::atomic_bool& change_mode, mkv::automata_pattern& pattern)
 {
 	while (1)
 	{
@@ -54,16 +32,17 @@ void drawing_thread(sdl::renderer& rend, std::atomic_bool& change_mode, mkv::pro
 		{
 			change_mode = 0;
 
-			data_field.fill(std::bitset<field_max_width>(0));
+			data_field.clear_field();
+			data_field.clear_top_margin();
 
 			for (int j = 0; j < 1; j++)
 			{
-			//	data_field[max_offscreen - 3].set(mkv::rand(0, field_max_width - 1), true);
-			//	data_field[max_offscreen - 2].set(mkv::rand(0, field_max_width - 1), true);
-				data_field[max_offscreen - 1].set(mkv::rand(0, field_max_width - 1), true);
+				data_field(mkv::rand(0, field_max_width - 1), -3) = 1;
+				data_field(mkv::rand(0, field_max_width - 1), -2) = 1;
+				data_field(mkv::rand(0, field_max_width - 1), -1) = 1;
 			}
 
-			sdl::rect rect(0, 0, screen_max_width, screen_max_height);
+		//	sdl::rect rect(0, 0, screen_max_width, screen_max_height);
 
 			rend.set_blend_mode(SDL_BLENDMODE_NONE);
 			rend.set_draw_color(0, 0, 0, 255);
@@ -78,35 +57,54 @@ void drawing_thread(sdl::renderer& rend, std::atomic_bool& change_mode, mkv::pro
 			{
 				int colv = mkv::rand(0, 2);
 
-				rend.set_draw_color(255, 255, 255, 255);			
+			//	if (i % 2 == 0)
+				//{
+					rend.set_draw_color(255, 255, 255, 255);
+				//}
+				//else
+				//{
+				//	rend.set_draw_color(0, 0, 0, 90);
+				//}
 
-				for (int y = max_offscreen; y < screen_max_height + max_offscreen; y++)
+				for (int y = 0; y < screen_max_height; y++)
 				{
-					for (int x = max_offscreen; x < screen_max_width + max_offscreen; x++)
+					for (int x = 0; x < screen_max_width; x++)
 					{
-						bool automata = process_pattern(x, y, pattern);
-						if (automata) { point_list[point_num++] = mkv::point(x - max_offscreen, y - max_offscreen); }
-						data_field[y].set(x, automata);
+						bool auto_result = pattern.pattern_calc(data_field, x, y);
+						if (auto_result) { point_list[point_num++] = mkv::point(x, y); }
+
+					//	if (i % 2 == 0)
+						//{
+							data_field(x, y) = auto_result;
+						//}
+						//else
+						//{
+							data_field(x, y) = !auto_result;
+						//}
+
+						//if (mkv::rand(1, 100) == 1) { mutate_pattern(pattern, 1); }
 					}
 
 					rend.draw_points(point_list.data(), point_num);
 					point_num = 0;
-					//mutate_pattern(pattern, 1);
+					//if (mkv::rand(1, 2) == 1) { mutate_pattern(pattern, 1); }
 
 				}
-				mutate_pattern(pattern, 1);
+				pattern.mutate(4);
 				rend.render();
 
-
-				std::fill(data_field.begin(), data_field.begin() + max_offscreen, std::bitset<field_max_width>(0));
+				data_field.clear_field();
+				
 				
 
-				for (int j = 0; j < 1; j++)
-				{
-					data_field[max_offscreen - 3].set(mkv::rand(0, field_max_width - 1), true);
-					data_field[max_offscreen - 2].set(mkv::rand(0, field_max_width - 1), true);
-					data_field[max_offscreen - 1].set(mkv::rand(0, field_max_width - 1), true);
-				}
+				//for (int j = 0; j < 1; j++)
+				//{
+				//	data_field[max_offscreen - 3].set(mkv::rand(0, field_max_width - 1), true);
+				//	data_field[max_offscreen - 2].set(mkv::rand(0, field_max_width - 1), true);
+				//	data_field[max_offscreen - 1].set(mkv::rand(0, field_max_width - 1), true);
+				//}*/
+
+				
 
 				//for (int j = 0; j < 8; j++)
 				//{
@@ -130,10 +128,13 @@ int main(int argc, char** argv)
 	sdl::renderer automata_renderer = main_window.get_renderer();
 
 	std::atomic_bool change = false;
-	mkv::prog_automata_pattern automata(mkv::t1_3, 0);
-	
-	std::uniform_int_distribution<unsigned long long int> pattern_dist(0, std::numeric_limits<unsigned long long int>::max());
-	std::uniform_int_distribution<unsigned int> type_dist(0, 2);
+
+	constexpr int32_t max_backrefs = 10;
+	mkv::fundamental_progressive_pattern<max_backrefs> automata;
+
+	decltype(automata)::pattern_t pattern;
+	decltype(automata)::backref_t backrefs;
+
 	
 	std::thread draw_thread(drawing_thread, std::ref(automata_renderer), std::ref(change), std::ref(automata));
 
@@ -149,15 +150,20 @@ int main(int argc, char** argv)
 
 			else if (e.type == SDL_KEYDOWN && e.key.repeat == 0 && e.key.keysym.sym == SDLK_r)
 			{
-				int n = mkv::rand(6, 6);
-				std::array<mkv::point, 6> pts;
+				int n = mkv::rand(10, 10);
+
 				for (int i = 0; i < n; i++)
 				{
-					pts[i] = mkv::point(mkv::rand(-3, 3), mkv::rand(-3, -1));
+					mkv::point p(mkv::rand(-5, 5), mkv::rand(-2, -1));
+					if (std::count(backrefs.begin(), backrefs.begin() + i, p) > 0) { i--; continue; }
+					backrefs[i] = p;
 				}
 
-				automata.change_type(mkv::automata_pattern_type(n, pts));
-				automata.change_pattern(std::bitset<64>(mkv::rand<uint64_t>(0, std::numeric_limits<uint64_t>::max())));
+				std::generate(pattern.begin(), pattern.end(), []() {return mkv::rand(0ull, std::numeric_limits<uint64_t>::max()); });
+
+				automata.change_backrefs(backrefs, n);
+				automata.change_pattern(pattern);
+
 				change = true;
 				std::cout << "regenerated\n";
 			}
